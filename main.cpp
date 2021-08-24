@@ -14,7 +14,7 @@ Param param  = {
 };
 
 bool parse(Param* param, int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc != 3) {
         usage();
         return false;
     }
@@ -30,6 +30,15 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "pcap_open_live(%s) return null - %s\n", param.dev_, errbuf);
         return -1;
     }
+    Prepare* pre = (Prepare*)malloc(sizeof(Prepare));
+    pre->pcap = pcap;
+    Mac my_mac = getMacAddress(argv[1]);
+    pre->argv1 = argv[1];
+    pre->argv2 = argv[2];
+    printf("%s\n",argv[1]);
+    printf("%s\n",argv[2]);
+    pre->my_mac = my_mac;
+    printf("%d\n\n",my_mac.mac_);
 
     while (true) {
         struct pcap_pkthdr* header;
@@ -41,7 +50,9 @@ int main(int argc, char* argv[]) {
             break;
         }
         printf("%u bytes captured\n", header->caplen);
-        res = parsing(packet,argv[2],header->caplen);
+        pre->caplen = header->caplen;
+        pre->packet = packet;
+        res = parsing(pre);
         if(!res)continue;
     }
     pcap_close(pcap);

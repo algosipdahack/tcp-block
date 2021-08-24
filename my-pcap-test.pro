@@ -6,11 +6,14 @@ LIBS += -lpcap
 LIBS += -lnetfilter_queue
 SOURCES += \
         bm.cpp \
-        function.cpp \
-        main.cpp
+        mac.cpp \
+        main.cpp \
+        packet.cpp \
+        prepare.cpp
 
 HEADERS += \
     bm.h \
-    header.h
+    header.h \
+    mac.h
 
 

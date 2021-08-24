@@ -9,19 +9,26 @@
 #include <string.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include "bm.h"
+#include "mac.h"
 #ifndef HEADER_H
 #define HEADER_H
 #define TCP 6
 #define IPv4 0x800
 #endif // HEADER_H
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <netinet/ether.h>
+#include <unistd.h>
 
-struct libnet_ethernet_hdr
+typedef struct libnet_ethernet_hdr
 {
-    u_int8_t  ether_dhost[6];/* destination ethernet address */
-    u_int8_t  ether_shost[6];/* source ethernet address */
+    Mac  ether_dhost;/* destination ethernet address */
+    Mac  ether_shost;/* source ethernet address */
     u_int16_t ether_type;                 /* protocol */
-};
-struct libnet_ipv4_hdr
+}ethernet;
+typedef struct libnet_ipv4_hdr
 {
     u_int8_t ip_v:4;       /* version */
     u_int8_t ip_hl:4;        /* header length */
@@ -57,8 +64,8 @@ struct libnet_ipv4_hdr
     u_int8_t ip_p;            /* protocol */
     u_int16_t ip_sum;         /* checksum */
     struct in_addr ip_src, ip_dst; /* source and dest address */
-};
-struct libnet_tcp_hdr
+}ip;
+typedef struct libnet_tcp_hdr
 {
     u_int16_t th_sport;       /* source port */
     u_int16_t th_dport;       /* destination port */
@@ -68,7 +75,7 @@ struct libnet_tcp_hdr
     u_int8_t  th_off:4;
     u_int8_t  th_flags;       /* control flags */
 #ifndef TH_FIN
-#define TH_FIN    0x01      /* finished send data */
+#define c    0x01      /* finished send data */
 #endif
 #ifndef TH_SYN
 #define TH_SYN    0x02      /* synchronize sequence numbers */
@@ -94,14 +101,52 @@ struct libnet_tcp_hdr
     u_int16_t th_win;         /* window */
     u_int16_t th_sum;         /* checksum */
     u_int16_t th_urp;         /* urgent pointer */
-};
+}tcp;
+
 struct payload{
     u_int8_t  data[64];
 };
-int parsing(const u_char* packet,char* argv,u_int32_t caplen);
+enum Direction{
+    Forward = 1,
+    Backward = 2
+};
+enum BlockType{
+    Rst = 0x04,
+    Fin = 0x01
+};
+enum Protocol{
+    Http = 1,
+    Https = 2
+};
+
+
+struct TCPBlock{
+    Direction direction;
+    BlockType blockType;
+    Protocol protocol;
+};
+struct PSD_HEADER{
+    struct in_addr m_daddr;
+    struct in_addr m_saddr;
+    u_int8_t m_mbz;
+    u_int8_t m_ptcl;
+    u_int16_t m_tcpl;
+};
+struct Prepare{
+    uint32_t caplen;
+    const u_char* packet;
+    Mac my_mac;
+    pcap_t* pcap;
+    char* argv1;
+    char* argv2;
+};
+
+int parsing(Prepare* pre);
 void payload(const u_char* packet,uint tot);
 int check_str(const unsigned char *data,char* bad);
 void print_ethernet(u_int8_t  ether_host[]);
 void print_ip(uint32_t addr);
 void dump(const unsigned char* buf, int size);
 extern BmCtx* ctx;
+Mac getMacAddress(char* dev);
+void convrt_mac(const char *data, char *cvrt_str, int sz);
