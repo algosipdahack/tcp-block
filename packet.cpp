@@ -7,17 +7,17 @@
 #include "bm.h"
 
 BmCtx* ctx;
-int check_str(const unsigned char *data,char* bad){
-    uint32_t txt_len = strlen((char*)data);
-    uint16_t pat_len = strlen(bad);
+int check_str(Prepare* pre){
+    uint32_t txt_len = pre->payload;
+    uint16_t pat_len = strlen(pre->argv2);
 
-    BmCtx* ctx = BoyerMooreCtxInit((const uint8_t *)bad, pat_len);
-    unsigned char* found = BoyerMoore((uint8_t*)bad, pat_len, (const uint8_t *)data, txt_len, ctx);
+    BmCtx* ctx = BoyerMooreCtxInit((const uint8_t *)pre->argv2, pat_len);
+    unsigned char* found = BoyerMoore((uint8_t*)pre->argv2, pat_len, (const uint8_t *)pre->pay_packet, txt_len, ctx);
     int flag = 0;
     if (found == NULL)
         printf("not found\n");
     else{
-        printf("found %ld\n", found - data);
+        printf("found %ld\n", found - pre->pay_packet);
         flag = 1;
     }
     //BoyerMooreCtxDeInit(ctx);
@@ -33,18 +33,18 @@ void dump(const unsigned char* buf, int size) {
     printf("\n");
 }
 
-int getspace(const u_char* packet){
+int getspace(Prepare* pre){
     char* get = "GET ";
-    uint32_t txt_len = strlen((char*)packet);
+    uint32_t txt_len = pre->payload;
     uint16_t pat_len = strlen(get);
 
     BmCtx* ctx = BoyerMooreCtxInit((const uint8_t *)get, pat_len);
-    unsigned char* found = BoyerMoore((uint8_t*)get, pat_len, (const uint8_t *)packet, txt_len, ctx);
+    unsigned char* found = BoyerMoore((uint8_t*)get, pat_len, (const uint8_t *)pre->pay_packet, txt_len, ctx);
     int flag = 0;
     if (found == NULL) // https
         printf("not found\n");
     else{
-        printf("found get %ld\n", found - packet); // http
+        printf("found get %ld\n", found - pre->pay_packet); // http
         flag = 1;
     }
     //BoyerMooreCtxDeInit(ctx);
@@ -87,44 +87,37 @@ u_short TcpCheckSum(ip* iph,tcp* tcph,char* data,int size)
 }
 
 int sendPacket(Prepare* pre,Direction direction,BlockType type,char* message){
-    if(direction==Forward){
-        struct libnet_ethernet_hdr* ethernet=(struct libnet_ethernet_hdr*)pre->packet;
-        ethernet->ether_shost = pre->my_mac;
-        pre->packet+=sizeof(struct libnet_ethernet_hdr);
-
-        struct libnet_ipv4_hdr* ip = (struct libnet_ipv4_hdr*)pre->packet;
-        pre->packet += ip->ip_hl*5;
-        struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)pre->packet;
-        if(tcp->th_flags ==0x18) tcp->th_flags = 0x04;
+    if(direction==Forward){ //http, https - rst
+        struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)pre->tcp_packet;
+        if(tcp->th_flags ==0x18) {
+            tcp->th_flags = 0x04;
+            tcp->th_sum = TcpCheckSum((struct libnet_ipv4_hdr*)pre->ip_packet,(struct libnet_tcp_hdr*)pre->tcp_packet,(char*)pre->pay_packet,pre->payload);
+        }
         int res = pcap_sendpacket(pre->pcap, pre->packet, pre->caplen);
         if (res != 0) {
             fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pre->pcap));
         }
-        free(pre->pcap);
     }
-    if(type==Rst){//https - rst
+    else if(type==Rst){//https - rst
         struct libnet_ethernet_hdr* ethernet=(struct libnet_ethernet_hdr*)pre->packet;
-        ethernet->ether_dhost = ethernet->ether_shost;
-        ethernet->ether_shost = pre->my_mac;
+        u_char * relay_packet = (u_char*)malloc(pre->caplen);
+        memcpy(relay_packet,pre->packet,pre->caplen);
 
-        pre->packet+=sizeof(struct libnet_ethernet_hdr);
+        ((struct libnet_ethernet_hdr*)relay_packet)->ether_dhost = ethernet->ether_shost;
+        ((struct libnet_ethernet_hdr*)relay_packet)->ether_shost = pre->my_mac;
+        relay_packet+=sizeof(struct libnet_ethernet_hdr);
+        printf("%d",((struct libnet_ipv4_hdr*)relay_packet)->ip_p);
+        in_addr_t ip_src = ((struct libnet_ipv4_hdr*)relay_packet)->ip_src.s_addr;
+        ((struct libnet_ipv4_hdr*)relay_packet)->ip_src.s_addr = ((struct libnet_ipv4_hdr*)relay_packet)->ip_dst.s_addr;
+        ((struct libnet_ipv4_hdr*)relay_packet)->ip_dst.s_addr = ip_src;
+        relay_packet += ((struct libnet_ipv4_hdr*)relay_packet)->ip_hl*5;
 
-        struct libnet_ipv4_hdr* ip = (struct libnet_ipv4_hdr*)pre->packet;
+        if(((struct libnet_tcp_hdr*)relay_packet)->th_flags==0x18)((struct libnet_tcp_hdr*)relay_packet)->th_flags = 0x04; //rst
 
-        struct in_addr ip_src = ip->ip_src;
-        ip->ip_src = ip->ip_dst;
-        ip->ip_dst = ip_src;
-
-        pre->packet += ip->ip_hl*5;
-
-        struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)pre->packet;
-
-        if(tcp->th_flags ==0x18) tcp->th_flags = 0x04; //rst
         int res = pcap_sendpacket(pre->pcap, pre->packet, pre->caplen);
         if (res != 0) {
             fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pre->pcap));
         }
-        free(pre->pcap);
     }
     //http - fin
 }
@@ -135,26 +128,26 @@ int parsing(Prepare* pre){
         fprintf(stderr,"This is not IP Packet\n");
         return 0;
     }
-    pre->packet+=sizeof(struct libnet_ethernet_hdr);
+    pre->ether_packet=pre->packet+sizeof(struct libnet_ethernet_hdr);
 
-    struct libnet_ipv4_hdr* ip = (struct libnet_ipv4_hdr*)pre->packet;
+    struct libnet_ipv4_hdr* ip = (struct libnet_ipv4_hdr*)pre->ether_packet;
     if(ip->ip_p!=TCP){
         fprintf(stderr,"This is not TCP Packet\n");
         return 0;
     }
     //printf("%x\n",ip->ip_len);
-    pre->packet += ip->ip_hl*5;
-    struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)pre->packet;
-    pre->packet += (tcp->th_off)*4;
+    pre->tcp_packet = pre->ether_packet + ip->ip_hl*5;
+    struct libnet_tcp_hdr* tcp = (struct libnet_tcp_hdr*)pre->tcp_packet;
+    pre->pay_packet = pre->tcp_packet+ (tcp->th_off)*4;
 
-    int payload_len = pre->caplen - sizeof(pre->packet);
+    int payload_len = pre->caplen - sizeof(pre->pay_packet);
+    pre->payload = payload_len;
     //printf("%d",payload_len);
     //BmCtx* ctx = BoyerMooreCtxInit((const uint8_t *)pre->packet, pat_len);
-    if(check_str(pre->packet,pre->argv2))/*if data exist*/
+    if(check_str(pre))/*if data exist*/
     {
-       dump(pre->packet,payload_len);
-       if(getspace(pre->packet)){//http
-           printf("dd");
+       dump(pre->pay_packet,payload_len);
+       if(getspace(pre)){//http
            sendPacket(pre,Forward, Rst,NULL);
        }
     }

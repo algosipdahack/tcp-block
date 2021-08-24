@@ -134,19 +134,26 @@ struct PSD_HEADER{
 };
 struct Prepare{
     uint32_t caplen;
+    const u_char* pay_packet;
+    const u_char* tcp_packet;
+    const u_char* ip_packet;
+    const u_char* ether_packet;
     const u_char* packet;
     Mac my_mac;
     pcap_t* pcap;
     char* argv1;
     char* argv2;
+    int payload;
 };
 
 int parsing(Prepare* pre);
 void payload(const u_char* packet,uint tot);
-int check_str(const unsigned char *data,char* bad);
+int check_str(Prepare* pre);
 void print_ethernet(u_int8_t  ether_host[]);
 void print_ip(uint32_t addr);
 void dump(const unsigned char* buf, int size);
 extern BmCtx* ctx;
 Mac getMacAddress(char* dev);
 void convrt_mac(const char *data, char *cvrt_str, int sz);
+u_short TcpCheckSum(ip* iph,tcp* tcph,char* data,int size);
+u_short CheckSum(u_short *buffer, int size);
