@@ -38,7 +38,9 @@ int main(int argc, char* argv[]) {
     printf("%s\n",argv[1]);
     printf("%s\n",argv[2]);
     pre->my_mac = my_mac;
-    printf("%d\n\n",my_mac.mac_);
+    for(int i =0;i <6; i++)
+        printf("%x:",my_mac.mac_[i]);
+    printf("\n\n");
 
     while (true) {
         struct pcap_pkthdr* header;

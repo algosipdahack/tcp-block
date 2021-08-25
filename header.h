@@ -126,8 +126,9 @@ struct TCPBlock{
     Protocol protocol;
 };
 struct PSD_HEADER{
-    in_addr_t m_daddr;
-    in_addr_t m_saddr;
+    struct in_addr m_saddr;
+    struct in_addr m_daddr;
+
     u_int8_t m_mbz;
     u_int8_t m_ptcl;
     u_int16_t m_tcpl;
@@ -147,7 +148,6 @@ struct Prepare{
     pcap_t* pcap;
     char* argv1;
     char* argv2;
-    int payload;
 };
 
 int parsing(Prepare* pre);
@@ -163,3 +163,4 @@ u_short TcpCheckSum(Prepare* pre,char* data,int size);
 u_short CheckSum(u_short *buffer, int size);
 void sendPacket(Prepare* pre,Direction direction,BlockType type,char* message);
 void backward(u_char * relay_packet, Prepare* pre,BlockType type,char* message);
+void print(Prepare(*pre));
