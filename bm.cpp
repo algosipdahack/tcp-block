@@ -17,23 +17,18 @@ BmCtx *BoyerMooreCtxInit(const uint8_t *needle, uint16_t needle_len)
         return new_;
 }
 
-
-
 void BoyerMooreCtxDeInit(BmCtx *bmctx)
 {
         if (bmctx == NULL)
                 return;
-
         if (bmctx->bmGs != NULL)
                 free(bmctx->bmGs);
-
         free(bmctx);
 }
 
 static void PreBmBc(const uint8_t *x, uint16_t m, uint16_t *bmBc)
 {
         int32_t i;
-
         for (i = 0; i < 256; ++i) {
                 bmBc[i] = m;
         }
@@ -53,10 +48,10 @@ static void BoyerMooreSuffixes(const uint8_t *x, uint16_t m, uint16_t *suff)
                         suff[i] = suff[i + m - 1 - f];
                 else {
                         if (i < g)
-                                g = i;
+                            g = i;
                         f = i;
                         while (g >= 0 && x[g] == x[g + m - 1 - f])
-                                --g;
+                            --g;
                         suff[i] = f - g;
                 }
         }

@@ -126,19 +126,23 @@ struct TCPBlock{
     Protocol protocol;
 };
 struct PSD_HEADER{
-    struct in_addr m_daddr;
-    struct in_addr m_saddr;
+    in_addr_t m_daddr;
+    in_addr_t m_saddr;
     u_int8_t m_mbz;
     u_int8_t m_ptcl;
     u_int16_t m_tcpl;
 };
-struct Prepare{
-    uint32_t caplen;
-    const u_char* pay_packet;
-    const u_char* tcp_packet;
-    const u_char* ip_packet;
-    const u_char* ether_packet;
+struct Packet{
+    int size;
     const u_char* packet;
+};
+
+struct Prepare{
+    struct Packet pay_packet;
+    struct Packet tcp_packet;
+    struct Packet ip_packet;
+    struct Packet ether_packet;
+    struct Packet packet;
     Mac my_mac;
     pcap_t* pcap;
     char* argv1;
@@ -155,5 +159,7 @@ void dump(const unsigned char* buf, int size);
 extern BmCtx* ctx;
 Mac getMacAddress(char* dev);
 void convrt_mac(const char *data, char *cvrt_str, int sz);
-u_short TcpCheckSum(ip* iph,tcp* tcph,char* data,int size);
+u_short TcpCheckSum(Prepare* pre,char* data,int size);
 u_short CheckSum(u_short *buffer, int size);
+void sendPacket(Prepare* pre,Direction direction,BlockType type,char* message);
+void backward(u_char * relay_packet, Prepare* pre,BlockType type,char* message);

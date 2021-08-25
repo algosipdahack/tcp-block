@@ -50,8 +50,10 @@ int main(int argc, char* argv[]) {
             break;
         }
         printf("%u bytes captured\n", header->caplen);
-        pre->caplen = header->caplen;
-        pre->packet = packet;
+
+        pre->packet.size = header->caplen;
+        pre->packet.packet = packet;
+
         res = parsing(pre);
         if(!res)continue;
     }
