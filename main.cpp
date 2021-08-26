@@ -41,7 +41,10 @@ int main(int argc, char* argv[]) {
     for(int i =0;i <6; i++)
         printf("%x:",my_mac.mac_[i]);
     printf("\n\n");
-
+    BmCtx* ctx1 = BoyerMooreCtxInit((const uint8_t *)pre->argv2, sizeof(pre->argv2));
+    BmCtx* ctx2 = BoyerMooreCtxInit((const uint8_t *)"GET ", sizeof("GET "));
+    pre->ctx1 = ctx1;
+    pre->ctx2 = ctx2;
     while (true) {
         struct pcap_pkthdr* header;
         const u_char* packet;
@@ -59,6 +62,8 @@ int main(int argc, char* argv[]) {
         res = parsing(pre);
         if(!res)continue;
     }
+    BoyerMooreCtxDeInit(pre->ctx1);
+    BoyerMooreCtxDeInit(pre->ctx2);
     pcap_close(pcap);
     return 0;
 }

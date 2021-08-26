@@ -21,7 +21,7 @@
 #include <sys/ioctl.h>
 #include <netinet/ether.h>
 #include <unistd.h>
-
+#pragma pack(push, 1)
 typedef struct libnet_ethernet_hdr
 {
     Mac  ether_dhost;/* destination ethernet address */
@@ -30,8 +30,8 @@ typedef struct libnet_ethernet_hdr
 }ethernet;
 typedef struct libnet_ipv4_hdr
 {
-    u_int8_t ip_v:4;       /* version */
-    u_int8_t ip_hl:4;        /* header length */
+    u_int8_t ip_hl:4;  /* header length */
+    u_int8_t ip_v:4;
     u_int8_t ip_tos;       /* type of service */
 #ifndef IPTOS_LOWDELAY
 #define IPTOS_LOWDELAY      0x10
@@ -106,14 +106,30 @@ typedef struct libnet_tcp_hdr
 struct payload{
     u_int8_t  data[64];
 };
+
+typedef struct ether_ip_tcp{
+    libnet_ethernet_hdr ethernet;
+    libnet_ipv4_hdr ip;
+    libnet_tcp_hdr tcp;
+}ether_ip_tcp;
+
+typedef struct ether_ip_tcp_pay{
+    libnet_ethernet_hdr ethernet;
+    libnet_ipv4_hdr ip;
+    libnet_tcp_hdr tcp;
+    payload pay;
+}ether_ip_tcp_pay;
+
 enum Direction{
     Forward = 1,
     Backward = 2
 };
+
 enum BlockType{
     Rst = 0x04,
-    Fin = 0x01
+    Fin = 0x19,
 };
+
 enum Protocol{
     Http = 1,
     Https = 2
@@ -125,6 +141,7 @@ struct TCPBlock{
     BlockType blockType;
     Protocol protocol;
 };
+
 struct PSD_HEADER{
     struct in_addr m_saddr;
     struct in_addr m_daddr;
@@ -133,6 +150,7 @@ struct PSD_HEADER{
     u_int8_t m_ptcl;
     u_int16_t m_tcpl;
 };
+
 struct Packet{
     int size;
     const u_char* packet;
@@ -148,19 +166,21 @@ struct Prepare{
     pcap_t* pcap;
     char* argv1;
     char* argv2;
+    BmCtx* ctx1;
+    BmCtx* ctx2;
 };
-
+#pragma pack(pop)
 int parsing(Prepare* pre);
 void payload(const u_char* packet,uint tot);
-int check_str(Prepare* pre);
+bool check_str(Prepare* pre,char* to_find);
 void print_ethernet(u_int8_t  ether_host[]);
 void print_ip(uint32_t addr);
 void dump(const unsigned char* buf, int size);
 extern BmCtx* ctx;
 Mac getMacAddress(char* dev);
 void convrt_mac(const char *data, char *cvrt_str, int sz);
-u_short TcpCheckSum(Prepare* pre,char* data,int size);
-u_short CheckSum(u_short *buffer, int size);
-void sendPacket(Prepare* pre,Direction direction,BlockType type,char* message);
+u_short TcpCheckSum(ether_ip_tcp* send_packet);
+void sendPacket(Prepare* pre,Direction dir, char* message);
 void backward(u_char * relay_packet, Prepare* pre,BlockType type,char* message);
 void print(Prepare(*pre));
+ether_ip_tcp* forward(Prepare*pre);

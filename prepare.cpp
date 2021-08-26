@@ -1,4 +1,20 @@
 #include "header.h"
+bool check_str(Prepare* pre,char* to_find){
+    BmCtx* ctx = BoyerMooreCtxInit((const uint8_t *)to_find, strlen(to_find));
+    unsigned char* found = BoyerMoore((uint8_t*)to_find, strlen(to_find), (const uint8_t *)pre->pay_packet.packet, pre->pay_packet.size, ctx);
+    if (found == NULL)
+        return false;
+    return true;
+}
+void dump(const unsigned char* buf, int size) {
+    int i;
+    for (i = 0; i < size; i++) {
+        if (i != 0 && i % 16 == 0)
+            printf("\n");
+        printf("%02X ", buf[i]);
+    }
+    printf("\n");
+}
 void convrt_mac(const char *data, char *cvrt_str, int sz){
      char buf[128] = {0,};
      char t_buf[8];
