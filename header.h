@@ -134,8 +134,6 @@ enum Protocol{
     Http = 1,
     Https = 2
 };
-
-
 struct TCPBlock{
     Direction direction;
     BlockType blockType;
@@ -150,6 +148,13 @@ struct PSD_HEADER{
     u_int8_t m_ptcl;
     u_int16_t m_tcpl;
 };
+
+struct PseudoTcpData{
+    PSD_HEADER pseudo_;
+    libnet_tcp_hdr tcp_;
+    uint8_t data_[100] = {0};
+};
+
 
 struct Packet{
     int size;
@@ -183,4 +188,4 @@ u_short TcpCheckSum(ether_ip_tcp* send_packet);
 void sendPacket(Prepare* pre,Direction dir, char* message);
 void backward(u_char * relay_packet, Prepare* pre,BlockType type,char* message);
 void print(Prepare(*pre));
-ether_ip_tcp* forward(Prepare*pre);
+void forward(Prepare*pre);
